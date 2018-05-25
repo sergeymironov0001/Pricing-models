@@ -84,7 +84,7 @@ def utility(weights, total, option=0, vol_penalty = 1, risk_penalty = 1):
     if option == 2: return risk
     if option == 3: return vol
     #else: return -np.sign(income)*(np.abs(income))**0.5/risk
-    else: return - utl
+    else: return -utl
 
 def find_r(weights, total, disp = False):    
     return np.apply_along_axis(irr_newton, 0, np.sum(total*weights,axis = 2)) 
