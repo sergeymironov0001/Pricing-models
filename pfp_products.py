@@ -35,6 +35,7 @@ def read_prodcat(file_name):
 
     sheet_to_df_map = {}
     und_list = []
+
     for sheet_name in xls.sheet_names:
         df = xls.parse(sheet_name)
         df = df.dropna(how='all')
@@ -42,7 +43,9 @@ def read_prodcat(file_name):
         sheet_to_df_map[sheet_name] = df
 
         und_cols = [col for col in df.columns if 'und' in col]
+
         if 'und_curr' in und_cols: und_cols.remove('und_curr')
+
         for col in und_cols:
             und_list.extend(df[col])
     und_list = [x for x in list(set(und_list)) if str(x) != 'nan']
@@ -391,17 +394,47 @@ def calc_autocall_notes(prods, N_sims, Years, points_in_year, client_term, price
 
     return prods_rub_3, prods_usd_3, list(prods.name.values)
 
-prod_dict = {
-    'исж классический': calc_prod_ili_classic,
-    'исж купонный': calc_prod_ili_coupon,
-    'автоколл': calc_autocall_notes,
-    'депозит': calc_prod_deposits,
-    'ПИФ': calc_prod_pifpaf,
-    'БСО': calc_prod_exchange_structured_bonds
-}
-
 def calc_prod(name):
+    prod_dict = {
+        'исж классический': calc_prod_ili_classic,
+        'исж купонный': calc_prod_ili_coupon,
+        'автоколл': calc_autocall_notes,
+        'депозит': calc_prod_deposits,
+        'ПИФ': calc_prod_pifpaf,
+        'БСО': calc_prod_exchange_structured_bonds
+    }
     prod_dict[name]()
+
+def calc_products3(prices, Years, points_in_year, client_term, response_option = 0, response_option_value = 0):
+ 
+    n_periods = Years * points_in_year   
+    N_sims = prices.shape[1]
+    prod_cat, prod_types, BAs = read_prodcat('prodcat.xlsx')
+    symbols = np.array(BAs)
+
+    prods_2_calc = ['исж классический',
+        'исж купонный',
+        'автоколл',
+        'депозит',
+        'ПИФ',
+        'БСО']
+    first_flag = 1
+
+    for prod in prods_2_calc:
+        prods_rub, prods_usd, names_1 = calc_prod(prod_cat[prod], N_sims, Years, points_in_year, client_term, prices, symbols)
+        
+        if first_flag == 1:
+            prods_rub_portf = prods_rub
+            prods_usd_portf = prods_usd
+            names_portf = names
+        else:
+            prods_rub_portf = np.concatenate([prods_rub_portf, prods_rub_1], axis = 2) 
+            prods_usd_portf = np.concatenate([prods_usd_portf, prods_usd_1], axis = 2) 
+            names_portf = names_portf + names
+    
+    total = np.concatenate([-np.ones((1, prods_usd_portf.shape[1], prods_usd_portf.shape[2])), prods_usd_portf], axis = 0)
+
+    return total, names
 
 def calc_products2(prices, Years, points_in_year, client_term, response_option = 0, response_option_value = 0):
 
@@ -426,6 +459,7 @@ def calc_products2(prices, Years, points_in_year, client_term, response_option =
     #print('done, my leatherbag')
 
     return total, names
+
 
 
 

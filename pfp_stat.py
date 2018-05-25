@@ -16,7 +16,7 @@ def set_prices(n_points, n_sims, mu, sigma, corr_matrix, dt):
 
     return prices
 
-def ba_scenarios(BAs, simulation_years, points_in_year, n_scenarios, assumptions, assumptions_flag):
+def ba_scenarios(BAs, simulation_years, points_in_year, n_scenarios, assumptions = pd.DataFrame(index = {'SPX Index', 'NKY Index'}, data = {'return': [0.2, 0.1]}), assumptions_flag = 0):
 
     n_timepoints = points_in_year*simulation_years
     dT = 1/points_in_year
@@ -32,22 +32,33 @@ def ba_scenarios(BAs, simulation_years, points_in_year, n_scenarios, assumptions
     Returns = np.log(Hist/Hist.shift(1))
     Returns = Returns.dropna()
     
-    predictors = Returns.columns[:20]   
+    predictors = Returns.columns[:16]   
     RF_yields = Returns[predictors].mean()*52
-    
-    if (assumptions_flag==1):
+
+    if (assumptions_flag == 1):
         RF_yields[assumptions.index] = assumptions['return']
-    
+
     Means = Returns[BAs].mean()*52
     linreg = LinearRegression(normalize=False, fit_intercept=True)
     
     for ba in BAs:        
         linreg.fit(Returns[predictors],Returns[ba])
-        Means[ba] = sum(linreg.coef_*RF_yields)+linreg.intercept_*52    
+        Means[ba] = sum(linreg.coef_*RF_yields)+linreg.intercept_*52  
+
     Sigmas = Returns[BAs].cov()*52
 
     Gens = np.random.multivariate_normal(Means*dT, Sigmas*dT, n_scenarios*n_timepoints).reshape(n_timepoints, n_scenarios, len(BAs))
 
     x = np.exp(np.cumsum(Gens, axis = 0))
+
+    print('Means: ')
+    print(Means)
+
+    print('Sigmas: ')
+    print(Returns[BAs].std())
+
+    print('Correlations: ')
+    print(Returns[BAs].corr())
+
 
     return x

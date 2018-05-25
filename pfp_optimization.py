@@ -1,14 +1,33 @@
 import numpy as np
 import math
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
 
 BASE_TOL = 1e-9
 MAX_LOG_RATE = 1e3
 
-def find_best_wghts(total):
+def report(w, total, names, utl_vol_penalty = 1, utl_risk_penalty = 1):
+    
+    for i in range(0,len(names)):
+        if w[i]!=0:
+            print(round(w[i],3),'\t\t', names[i])
+        
+    r2 = find_r(w, total)
+    plt.hist(r2, bins = 30)
+    plt.show()
+    print('income = \t\t', utility(w, total, 1, utl_vol_penalty, utl_risk_penalty))
+    print('volatility = \t\t', utility(w, total, 3, utl_vol_penalty, utl_risk_penalty))
+    print('risk =   \t\t', utility(w, total, 2, utl_vol_penalty, utl_risk_penalty))
+    #print('utility = \t\t', utility(w, total, 0, utl_vol_penalty, utl_risk_penalty))    
+    print('------------------------')
+
+def find_best_wghts(total, vol_penalty = 1, risk_penalty = 1):
 
     n_prods = total.shape[2]
-    cons = ({'type': 'eq', 'fun': lambda x:  np.sum(np.array(x))-1})
+    cons = ({'type': 'eq', 'fun': lambda x:  np.sum(np.array(x))-1},
+            {'type': 'eq', 'fun': lambda x: x[7]},
+            {'type': 'ineq', 'fun': lambda x: 0.2 - x[12]}
+            )
     bnds = (np.repeat([np.array([0,1])],n_prods,axis =0))
 
     #------init sets-------------------------------------------
@@ -33,23 +52,29 @@ def find_best_wghts(total):
     best_weights = np.ones(n_prods)/n_prods
     
     for weights in ww:
-        res = minimize(utility, weights, args = (total,0), method='SLSQP', bounds=bnds, constraints=cons, options={'disp': False}, tol = 1)
+        res = minimize(utility, weights, args = (total,0, vol_penalty, risk_penalty), method='SLSQP', bounds=bnds, constraints=cons, options={'disp': False}, tol = 0.1)
         if res.fun < func:
             func = res.fun
             best_weights = res.x
     
-    res2 = minimize(utility, best_weights, args = (total,0), method='SLSQP', bounds=bnds, constraints=cons, options={'disp': False}, tol = 0.01)            
+    res2 = minimize(utility, best_weights, args = (total,0, vol_penalty, risk_penalty), method='SLSQP', bounds=bnds, constraints=cons, options={'disp': False}, tol = 0.01)            
 
     return res2.x, res2.fun 
 #    return best_weights, func
 
-def utility(weights, total, option=0):       
+def utility(weights, total, option=0, vol_penalty = 1, risk_penalty = 1):       
 
     r = np.apply_along_axis(irr_newton, 0, np.sum( total*weights ,axis = 2) )     
+    #r = np.apply_along_axis(np.irr, 0, np.sum( total*weights ,axis = 2) )
 
     income = np.mean(r)    
-    risk = 0.01
-    if len(r[r<0]) > 0: risk = np.abs(np.mean(r[r<0])) + 0.01
+    risk = 0
+    if len(r[r<0]) > 0: risk = np.abs(np.mean(r[r<0])) 
+
+    vol = 0
+    if len(set(r)) > 3: vol = np.std(r)
+
+    utl = income / ((0.03*vol_penalty*vol**2 + risk_penalty*risk**2 + 0.000001)**0.5)
     
     #risk = max(0.01,-np.percentile(r,1))
     #if len(set(r)) > 3:
@@ -57,10 +82,11 @@ def utility(weights, total, option=0):
 
     if option == 1: return income
     if option == 2: return risk
+    if option == 3: return vol
     #else: return -np.sign(income)*(np.abs(income))**0.5/risk
-    else: return - income / risk
+    else: return - utl
 
-def find_r(total, weights, disp = False):    
+def find_r(weights, total, disp = False):    
     return np.apply_along_axis(irr_newton, 0, np.sum(total*weights,axis = 2)) 
 
 def irr_newton(stream, tol=BASE_TOL):
