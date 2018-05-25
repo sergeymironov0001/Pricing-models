@@ -74,7 +74,7 @@ def utility(weights, total, option=0, vol_penalty = 1, risk_penalty = 1):
     vol = 0
     if len(set(r)) > 3: vol = np.std(r)
 
-    utl = income / ((0.03*vol_penalty*vol**2 + risk_penalty*risk**2 + 0.000001)**0.5)
+    utl = income / ((0.2*vol_penalty*vol**2 + risk_penalty*risk**2 + 0.000001)**0.5)
     
     #risk = max(0.01,-np.percentile(r,1))
     #if len(set(r)) > 3:
